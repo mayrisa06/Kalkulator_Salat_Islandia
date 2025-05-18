@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KALKULATOR SALAT DI ISLANDIA</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fce4ec; /* pink muda yang soft */
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(236, 64, 122, 0.15); /* bayangan pinkish */
+            border: 2px solid #ec407a; /* pink cerah */
+        }
+        h1 {
+            text-align: center;
+            color: #ad1457; /* pink tua */
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        input[type="date"], input[type="submit"] {
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        input[type="submit"] {
+            background-color: #ec407a; /* pink cerah */
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        input[type="submit"]:hover {
+            background-color: #880e4f; /* pink agak gelap */
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #ccc;
+        }
+        th {
+            background-color: #ec407a; /* pink cerah */
+            color: white;
+        }
+        #updateButton {
+            display: none;
+            margin-top: 20px;
+            background-color: #f06292; /* pink muda cerah */
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        #updateButton:hover {
+            background-color: #c2185b; /* pink tua */
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>KALKULATOR SALAT DI ISLANDIA</h1>
+    <form id="prayerForm">
+        <label for="date">Pilih Tanggal:</label>
+        <input type="date" id="date" required>
+        <input type="submit" value="Hitung Waktu Salat">
+    </form>
+    <table id="resultsTable" class="hidden">
+        <thead>
+            <tr><th>Waktu</th><th>Jam</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Zuhur</td><td id="dzuhur"></td></tr>
+            <tr><td>Asar</td><td id="ashar"></td></tr>
+            <tr><td>Magrib</td><td id="maghrib"></td></tr>
+            <tr><td>Isya</td><td id="isya"></td></tr>
+            <tr><td>Subuh</td><td id="subuh"></td></tr>
+        </tbody>
+    </table>
+    <input type="button" id="updateButton" value="Jadwal Salat yang Telah Diperbarui">
+    <p id="note" class="hidden" style="color: red; margin-top: 15px;">
+        Catatan: Karena waktu Isya dan Subuh di Reykjavik pada tanggal tertentu tidak valid secara astronomis, waktu tersebut dihitung dengan metode <em>ittiba' aqrab al-bilad</em> berdasarkan lokasi terdekat yang memungkinkan perhitungan, yaitu London, Inggris.
+    </p>
+</div>
+
+<script>
+function secondsToHMS(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    return h.toString().padStart(2, '0') + ":" + m.toString().padStart(2, '0') + ":" + s.toString().padStart(2, '0');
+}
+
+function degToRad(d) { return d * Math.PI / 180; }
+function radToDeg(r) { return r * 180 / Math.PI; }
+function dmsToDecimal(d, m, s) {
+    const sign = d < 0 ? -1 : 1;
+    return sign * (Math.abs(d) + m / 60 + s / 3600);
+}
+function getDeclinationFromDate(date) {
+    const dayOfYear = Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
+    return 23.44 * Math.sin(degToRad(360 / 365 * (dayOfYear - 81)));
+}
+
+const button = document.getElementById("updateButton");
+
+function hitungWaktuLondon(declination) {
+    const longitude = dmsToDecimal(0, 7, 39);
+    const latitude = dmsToDecimal(51, 30, 26);
+    const EOT_sec = 6 * 60 + 23;
+    const ikhtiyat_sec = 120;
+    const KWD_sec = ((15 - longitude) / 15) * 3600;
+    const median_pass_sec = (12 * 3600) - (-EOT_sec);
+
+    // ISYA
+    const h_isya_rad = degToRad(-15);
+    let cos_t_isya = -Math.tan(degToRad(latitude)) * Math.tan(degToRad(declination)) +
+                     (Math.sin(h_isya_rad) / (Math.cos(degToRad(latitude)) * Math.cos(degToRad(declination))));
+    cos_t_isya = Math.min(1, Math.max(-1, cos_t_isya));
+    const t_isya_deg = radToDeg(Math.acos(cos_t_isya));
+    const t_isya_sec = t_isya_deg * 240;
+    const isya = Math.round((t_isya_sec + median_pass_sec + KWD_sec + ikhtiyat_sec) / 60) * 60;
+
+    // SUBUH
+    const h_subuh_rad = degToRad(-15);
+    let cos_t_subuh = -Math.tan(degToRad(latitude)) * Math.tan(degToRad(declination)) +
+                      (Math.sin(h_subuh_rad) / (Math.cos(degToRad(latitude)) * Math.cos(degToRad(declination))));
+
+    const t_subuh_deg = radToDeg(Math.acos(cos_t_subuh));
+    const t_subuh_sec = t_subuh_deg * 240;
+    const subuh = Math.round((median_pass_sec - t_subuh_sec + KWD_sec + ikhtiyat_sec) / 60) * 60;
+
+    return [secondsToHMS(isya), secondsToHMS(subuh)];
+}
+
+const form = document.getElementById("prayerForm");
+form.addEventListener("submit", function(e) {
+    e.preventDefault();
+    const date = new Date(document.getElementById("date").value);
+    const declination = getDeclinationFromDate(date);
+
+    const longitude = dmsToDecimal(-21, 53, 43);
+    const latitude = dmsToDecimal(64, 8, 7);
+    const longitude_zone = 0;
+    const EOT_sec = 6 * 60 + 23;
+    const ikhtiyat_sec = 120;
+    const median_pass_sec = 12 * 3600 + EOT_sec;
+    const KWD_sec = ((longitude_zone - longitude) / 15) * 3600;
+
+    const dzuhur = Math.round((median_pass_sec + KWD_sec) / 60) * 60 + ikhtiyat_sec;
+    document.getElementById("dzuhur").innerText = secondsToHMS(dzuhur);
+
+    const lat_minus_dec_rad = degToRad(Math.abs(latitude - declination));
+    const cot_h_ashar = Math.abs(Math.tan(lat_minus_dec_rad)) + 1;
+    const h_ashar_rad = Math.atan(1 / cot_h_ashar);
+    let cos_t_ashar = -Math.tan(degToRad(latitude)) * Math.tan(degToRad(declination)) +
+                      (Math.sin(h_ashar_rad) / (Math.cos(degToRad(latitude)) * Math.cos(degToRad(declination))));
+    cos_t_ashar = Math.min(1, Math.max(-1, cos_t_ashar));
+    const t_ashar_deg = radToDeg(Math.acos(cos_t_ashar));
+    const t_ashar_sec = t_ashar_deg * 240;
+    const ashar = Math.round((t_ashar_sec + median_pass_sec + KWD_sec) / 60) * 60 + ikhtiyat_sec;
+    document.getElementById("ashar").innerText = secondsToHMS(ashar);
+
+    const cos_t_maghrib = -Math.tan(degToRad(latitude)) * Math.tan(degToRad(declination));
+    const t_maghrib_deg = radToDeg(Math.acos(Math.min(1, Math.max(-1, cos_t_maghrib))));
+    const t_maghrib_sec = t_maghrib_deg * 240;
+    const maghrib = Math.round((t_maghrib_sec + median_pass_sec + KWD_sec + ikhtiyat_sec) / 60) * 60;
+    document.getElementById("maghrib").innerText = secondsToHMS(maghrib);
+
+    let errorDetected = false;
+    try {
+        const h_isya_rad = degToRad(-15);
+        let cos_t_isya = -Math.tan(degToRad(latitude)) * Math.tan(degToRad(declination)) +
+                         (Math.sin(h_isya_rad) / (Math.cos(degToRad(latitude)) * Math.cos(degToRad(declination))));
+        cos_t_isya = Math.min(1, Math.max(-1, cos_t_isya));
+        const t_isya_deg = radToDeg(Math.acos(cos_t_isya));
+        const t_isya_sec = t_isya_deg * 240;
+        let isya = Math.round((t_isya_sec + median_pass_sec + KWD_sec + ikhtiyat_sec) / 60) * 60;
+        if (isya >= 86400) throw new Error();
+        document.getElementById("isya").innerText = secondsToHMS(isya);
+    } catch (e) {
+        document.getElementById("isya").innerText = "ERROR";
+        errorDetected = true;
+    }
+
+    try {
+        const h_subuh_rad = degToRad(-15);
+        let cos_t_subuh = -Math.tan(degToRad(latitude)) * Math.tan(degToRad(declination)) +
+                          (Math.sin(h_subuh_rad) / (Math.cos(degToRad(latitude)) * Math.cos(degToRad(declination))));
+        if (cos_t_subuh < -1 || cos_t_subuh > 1) throw new Error();
+        const t_subuh_deg = radToDeg(Math.acos(cos_t_subuh));
+        const t_subuh_sec = t_subuh_deg * 240;
+        const subuh = Math.round((median_pass_sec - t_subuh_sec + KWD_sec - ikhtiyat_sec) / 60) * 60;
+        if (subuh >= 86400) throw new Error();
+        document.getElementById("subuh").innerText = secondsToHMS(subuh);
+    } catch (e) {
+        document.getElementById("subuh").innerText = "ERROR";
+        errorDetected = true;
+    }
+
+    if (errorDetected) {
+        button.style.display = 'inline-block';
+        document.getElementById("note").classList.remove("hidden");
+    } else {
+        document.getElementById("note").classList.add("hidden");
+    }
+
+    document.getElementById("resultsTable").classList.remove("hidden");
+});
+
+button.addEventListener("click", function() {
+    const date = new Date(document.getElementById("date").value);
+    const decl = getDeclinationFromDate(date);
+    const [isyaLondon, subuhLondon] = hitungWaktuLondon(decl);
+    document.getElementById("isya").innerText = isyaLondon;
+    document.getElementById("subuh").innerText = subuhLondon;
+    button.style.display = 'none';
+});
+</script>
+</body>
+</html>
